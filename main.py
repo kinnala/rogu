@@ -89,6 +89,10 @@ class Wall(Drawable):
     def tick(self, objs, ev, query):
         pass
 
+    def destroy(self, objs):
+        if self in objs:
+            objs.remove(self)
+
 
 @dataclass
 class Flame(Drawable):
@@ -104,36 +108,48 @@ class Flame(Drawable):
         if (self.x, self.y) in query:
             for obj in query[(self.x, self.y)]:
                 if isinstance(obj, Wall):
-                    objs.remove(obj)
-                elif isinstance(obj, Bomb) or isinstance(obj, TNT):
+                    obj.destroy(objs)
+                elif isinstance(obj, Gunpowder) or isinstance(obj, TNT):
                     obj.detonate(objs)
                 elif isinstance(obj, Player):
-                    obj.dead = True
+                    obj.kill()
 
 
 @dataclass
-class Bomb(Drawable):
+class Spark(Drawable):
 
-    secs: int
+    z: int = 100
 
     @property
     def char(self):
-        return 'o'
+        return '^'
+
+    def tick(self, objs, ev, query):
+        objs.remove(self)
+        if (self.x, self.y) in query:
+            for obj in query[(self.x, self.y)]:
+                if isinstance(obj, Gunpowder) or isinstance(obj, TNT):
+                    obj.detonate(objs)
+
+
+@dataclass
+class Gunpowder(Drawable):
+
+    @property
+    def char(self):
+        return '~'
 
     def detonate(self, objs):
         objs.append(Flame(self.x, self.y, 100))
-        objs.append(Flame(self.x + 1, self.y, 100))
-        objs.append(Flame(self.x - 1, self.y, 100))
-        objs.append(Flame(self.x, self.y + 1, 100))
-        objs.append(Flame(self.x, self.y - 1, 100))
+        objs.append(Spark(self.x + 1, self.y, 100))
+        objs.append(Spark(self.x - 1, self.y, 100))
+        objs.append(Spark(self.x, self.y + 1, 100))
+        objs.append(Spark(self.x, self.y - 1, 100))
         if self in objs:
             objs.remove(self)
 
     def tick(self, objs, ev, query):
-        if self.secs == 0:
-            self.detonate(objs)
-        else:
-            self.secs -= 1
+        pass
 
 
 @dataclass
@@ -141,12 +157,15 @@ class TNT(Drawable):
 
     @property
     def char(self):
-        return '/'
+        return '='
 
     def detonate(self, objs):
-        for i in range(-3, 3, 1):
-            for j in range(-3, 3, 1):
-                objs.append(Flame(self.x + i, self.y + j, 100))
+        for i in range(-4, 5, 1):
+            for j in range(-4, 5, 1):
+                if abs(i) == 4 or abs(j) == 4:
+                    objs.append(Spark(self.x + i, self.y + j, 100))
+                else:
+                    objs.append(Flame(self.x + i, self.y + j, 100))
         if self in objs:
             objs.remove(self)
 
@@ -166,6 +185,10 @@ class Player(Drawable):
             return 'x'
         return '@'
 
+    def kill(self):
+        if not self.dead:
+            self.dead = True
+
     def tick(self, objs, ev, query):
         if self.dead:
             return
@@ -179,10 +202,16 @@ class Player(Drawable):
             ny -= 1
         elif ev.keysym == 'Down':
             ny += 1
+        elif ev.keysym == 's':
+            objs.append(Gunpowder(self.x, self.y, 100))
         elif ev.keysym == 'a':
-            objs.append(Bomb(self.x, self.y, 100, 4))
-        elif ev.keysym == 'd':
             objs.append(TNT(self.x, self.y, 100))
+        elif ev.keysym == 'd':
+            objs.append(Spark(self.x, self.y, 100))
+            objs.append(Spark(self.x + 1, self.y, 100))
+            objs.append(Spark(self.x - 1, self.y, 100))
+            objs.append(Spark(self.x, self.y + 1, 100))
+            objs.append(Spark(self.x, self.y - 1, 100))
 
         if (nx, ny) in query:
             for obj in query[(nx, ny)]:
@@ -195,7 +224,7 @@ class Player(Drawable):
 class Rogue(Game):
 
     objects = [
-        Player(5, 5),
+        Player(6, 6),
         Wall(10, 10),
         Wall(10, 9),
         Wall(10, 8),
@@ -209,6 +238,12 @@ class Rogue(Game):
         Wall(6, 4),
         Wall(5, 4),
         Wall(4, 4),
+        Wall(4, 5),
+        Wall(4, 6),
+        Wall(4, 7),
+        Wall(4, 8),
+        Wall(4, 9),
+        Wall(4, 10),
     ]
     query = {}
 
