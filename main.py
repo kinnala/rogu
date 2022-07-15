@@ -105,7 +105,7 @@ class Flame(Drawable):
             for obj in query[(self.x, self.y)]:
                 if isinstance(obj, Wall):
                     objs.remove(obj)
-                elif isinstance(obj, Bomb):
+                elif isinstance(obj, Bomb) or isinstance(obj, TNT):
                     obj.detonate(objs)
                 elif isinstance(obj, Player):
                     obj.dead = True
@@ -118,7 +118,7 @@ class Bomb(Drawable):
 
     @property
     def char(self):
-        return '/'
+        return 'o'
 
     def detonate(self, objs):
         objs.append(Flame(self.x, self.y, 100))
@@ -126,13 +126,32 @@ class Bomb(Drawable):
         objs.append(Flame(self.x - 1, self.y, 100))
         objs.append(Flame(self.x, self.y + 1, 100))
         objs.append(Flame(self.x, self.y - 1, 100))
-        objs.remove(self)
+        if self in objs:
+            objs.remove(self)
 
     def tick(self, objs, ev, query):
         if self.secs == 0:
             self.detonate(objs)
         else:
             self.secs -= 1
+
+
+@dataclass
+class TNT(Drawable):
+
+    @property
+    def char(self):
+        return '/'
+
+    def detonate(self, objs):
+        for i in range(-3, 3, 1):
+            for j in range(-3, 3, 1):
+                objs.append(Flame(self.x + i, self.y + j, 100))
+        if self in objs:
+            objs.remove(self)
+
+    def tick(self, objs, ev, query):
+        pass
 
 
 @dataclass
@@ -162,6 +181,8 @@ class Player(Drawable):
             ny += 1
         elif ev.keysym == 'a':
             objs.append(Bomb(self.x, self.y, 100, 4))
+        elif ev.keysym == 'd':
+            objs.append(TNT(self.x, self.y, 100))
 
         if (nx, ny) in query:
             for obj in query[(nx, ny)]:
